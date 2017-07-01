@@ -15,7 +15,7 @@ export default class UserInput extends Component {
 	    this.clearInput = this.clearInput.bind(this);
 	}
 	render() {
-		let displayProp = this.state.showDelete?'flex':'none';
+		let displayProp = this.state.showDelete?'flex':'flex';
 		return (
 			<View style={styles.inputWrapper}>
 				<Image source={this.props.source}
@@ -27,6 +27,7 @@ export default class UserInput extends Component {
 					secureTextEntry={this.props.secureTextEntry}
 					autoCapitalize={this.props.autoCapitalize}
 					autoCorrect={this.props.autoCorrect}
+					autoFocus={this.props.autoFocus}
 					placeholderTextColor='#999'
 					underlineColorAndroid='transparent'
 					onChangeText={(value) => {
@@ -37,13 +38,6 @@ export default class UserInput extends Component {
 					}
 					ref = {(TextInput) => {this.textInput = TextInput; }}
 				/>
-				<TouchableOpacity
-					activeOpacity={0.7}
-					style={[styles.btnDelete,{display:displayProp}]}
-					onPress={this.clearInput}
-				>
-					<Image source={require('../images/delete.png')} style={styles.deleteImg} />
-				</TouchableOpacity>
 			</View>
 		);
 	}

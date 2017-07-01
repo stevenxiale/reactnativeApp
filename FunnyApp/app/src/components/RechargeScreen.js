@@ -9,54 +9,72 @@ import {
   Button,
   TouchableOpacity,
   Image,
+  Alert,
 }from 'react-native';
 import { NavigationActions } from 'react-navigation';
 import { connect } from 'react-redux';
 import Dimensions from 'Dimensions';
+import md5 from 'react-native-md5';
 
 import usernameImg from './images/username.png';
 import pwdImg from './images/password.png';
 import UserInput from './login/UserInput';
 
 
-const sendToServer = function(component){
+const sendToServer = function(component,userInfo,loginToken){
   var request = new XMLHttpRequest();
   request.onreadystatechange = (e) => {
     if (request.readyState !== 4) {
       return;
     }
     if (request.status === 200) {
-      let userInfo = JSON.parse(request._response);
-      component.props.login(userInfo);
-      component.props.navigation.goBack();
+      let data = JSON.parse(request._response);
+      if(component.state.reType === 'gold')
+        component.props.rechargeGold(data);
+      else
+        component.props.rechargeMember(data);
     } else {
-      alert(request._response);
+      Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
     }
   };
   
-  request.open('POST', 'http://127.0.0.1:5000/login');
+  request.open('POST', 'http://127.0.0.1:5000/user/logout');
   request.setRequestHeader('Content-type', 'application/json');
-  let body = {username:component.state.username,password:component.state.password};
+  request.setRequestHeader('x-login-token',loginToken);
+  request.setRequestHeader('x-user-id',userInfo.id);
+
+  let body = {
+    coupon:md5.str_md5(component.state.exCode),
+    timestamp:new Date().getTime(),
+    signature:'?user_id=' + userInfo.id + '&coupon=' + md5.str_md5(component.state.exCode),
+  };
   request.send(JSON.stringify(body));
 }
 
 class RechargeScreen extends React.Component {
 	constructor(props) {
 	    super(props);
+      this.state = {
+        reType:this.props.navigation.state.params.reType,
+        choose:null,
+        payType:null,
+      }
 	}
-  static navigationOptions = {
-    title: '充值',
-   	headerStyle:{
-      backgroundColor:'#fff',
-      justifyContent:'center',
-    },
-    headerTintColor:'#000',
-    headerTitleStyle:{
-      textAlign:'center',
-      alignSelf:'center',
-    },
-    headerRight:<View/>,
-  };
+  static navigationOptions = ({navigation}) => {
+    return{
+      title: navigation.state.params.title,
+     	headerStyle:{
+        backgroundColor:'#fff',
+        justifyContent:'center',
+      },
+      headerTintColor:'#000',
+      headerTitleStyle:{
+        textAlign:'center',
+        alignSelf:'center',
+      },
+      headerRight:<View/>,
+    }
+  }
   
   render() {
     return (
@@ -65,7 +83,7 @@ class RechargeScreen extends React.Component {
             <Text style={styles.codeText}>兑换码充值</Text>
             <View style={styles.codeInput}>
               <TextInput style={styles.input}
-                placeholder='请输入您的兑换码'
+                placeholder={this.state.reType === 'member' ? '请输入会员兑换码':'请输入金币兑换码'}
                 returnKeyType= 'done'
                 keyboardType= 'default'
                 secureTextEntry= {true}
@@ -75,69 +93,137 @@ class RechargeScreen extends React.Component {
                 underlineColorAndroid='transparent'
                 onChangeText={(value) => {
                   console.log(value);
+                  this.setState({exCode:value});
                   }
                 }
-                ref = {(TextInput) => {this.textInput = TextInput; }}
               />
               <TouchableHighlight 
-                style = {styles.rechargeButton}>
+                style = {styles.rechargeButton} underlayColor='#f4f4f4' activeOpacity={0.9}
+                onPress={()=>{
+                  if(!this.state.exCode){
+                    Alert.alert('提示','请输入兑换码',[{text:'确定',onPress:()=>{}}]);
+                    return;
+                  }
+                  sendToServer(this,this.props.userInfo,this.props.loginToken);
+                }}>
                 <Text style={styles.rechargeButtonText}>立即兑换</Text>
               </TouchableHighlight>
             </View>
           </View>
-
+          {this.state.reType === 'member' ? 
           <View style={styles.cashArea}>
             <Text style={styles.codeText}>微信／支付宝充值</Text>
             <View style={styles.cashAreaInfo}>
-              <TouchableHighlight style={styles.cashItem}>
+              <TouchableHighlight style={this.state.choose == 'oneMonth'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+              onPress={()=>{
+                this.setState({choose:'oneMonth'});
+              }}>
                <View style={styles.cashItemView}>
                  <Text style={styles.cashText1}>1个月</Text>
                  <Text style={styles.cashText2}>20元</Text>
                </View>
               </TouchableHighlight>
-              <TouchableHighlight style={styles.cashItem} >
+              <TouchableHighlight style={this.state.choose == 'thrMonth'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+              onPress={()=>{
+                this.setState({choose:'thrMonth'});
+              }}>
                 <View style={styles.cashItemView}>
                    <Text style={styles.cashText1}>3个月</Text>
                    <Text style={styles.cashText2}>60元</Text>
                 </View>
               </TouchableHighlight>
-              <TouchableHighlight style={styles.cashItem} >
+              <TouchableHighlight style={this.state.choose == 'sixMonth'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+              onPress={()=>{
+                this.setState({choose:'sixMonth'});
+              }}>
                 <View style={styles.cashItemView}>
                     <Text style={styles.cashText1}>6个月</Text>
                    <Text style={styles.cashText2}>120元</Text>
                 </View>
               </TouchableHighlight>
-              <TouchableHighlight style={styles.cashItem} >
+              <TouchableHighlight style={this.state.choose == 'oneYear'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+              onPress={()=>{
+                this.setState({choose:'oneYear'});
+              }}>
                 <View style={styles.cashItemView}>
                     <Text style={styles.cashText1}>1 年</Text>
                    <Text style={styles.cashText2}>240元</Text>
                 </View>
               </TouchableHighlight>
             </View>
-            <TouchableHighlight style={styles.payListItem}>
+          </View>:
+          <View style={styles.cashArea}>
+            <Text style={styles.codeText}>微信／支付宝充值</Text>
+            <View style={styles.cashAreaInfo}>
+                <TouchableHighlight style={this.state.choose == 'gold100'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+                onPress={()=>{
+                  this.setState({choose:'gold100'});
+                }}>
+                 <View style={styles.cashItemView}>
+                   <Text style={styles.cashText1}>100金币</Text>
+                   <Text style={styles.cashText2}>5元</Text>
+                 </View>
+                </TouchableHighlight>
+                <TouchableHighlight style={this.state.choose == 'gold200'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+                onPress={()=>{
+                  this.setState({choose:'gold200'});
+                }}>
+                  <View style={styles.cashItemView}>
+                     <Text style={styles.cashText1}>200金币</Text>
+                     <Text style={styles.cashText2}>10元</Text>
+                  </View>
+                </TouchableHighlight>
+                <TouchableHighlight style={this.state.choose == 'gold600'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+                onPress={()=>{
+                  this.setState({choose:'gold600'});
+                }}>
+                  <View style={styles.cashItemView}>
+                      <Text style={styles.cashText1}>600金币</Text>
+                     <Text style={styles.cashText2}>30元</Text>
+                  </View>
+                </TouchableHighlight>
+                <TouchableHighlight style={this.state.choose == 'gold1200'?[styles.cashItem,styles.chsBgColor]:styles.cashItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+                onPress={()=>{
+                  this.setState({choose:'gold1200'});
+                }}>
+                  <View style={styles.cashItemView}>
+                      <Text style={styles.cashText1}>1200金币</Text>
+                     <Text style={styles.cashText2}>60元</Text>
+                  </View>
+                </TouchableHighlight>
+            </View>
+          </View>}
+            <TouchableHighlight style={styles.payListItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+            onPress={()=>{
+              this.setState({payType:'wechat'});
+            }}>
               <View style={styles.payItem}>
                 <Image style={styles.payIcon} source={require('./images/wechat.png')} />
                 <View style={styles.payText}>
                   <Text style={styles.iconText}>微信支付</Text>
-                  <Image style={styles.checked} source={require('./images/check1.png')} />
+                  <Image style={styles.checked} source={this.state.payType == 'wechat' ? require('./images/check2.png'):require('./images/check1.png')} />
                 </View>
               </View>
             </TouchableHighlight>
-            <TouchableHighlight style={styles.payListItem}>
+            <TouchableHighlight style={styles.payListItem} underlayColor='#f4f4f4' activeOpacity={0.9}
+            onPress={()=>{
+              this.setState({payType:'alipay'});
+            }}>
               <View style={styles.payItem}>
                 <Image style={styles.payIcon} source={require('./images/alipay.png')} />
                 <View style={styles.payText}>
                   <Text style={styles.payName}>支付宝支付</Text>
-                  <Image style={styles.checked} source={require('./images/check1.png')} />
+                  <Image style={styles.checked} source={this.state.payType == 'alipay' ? require('./images/check2.png') : require('./images/check1.png')} />
                 </View>
               </View>
             </TouchableHighlight>
             <View style={styles.cashButtonArea}>
-              <TouchableHighlight style={styles.cashButton}>
-                <Text style={styles.cashButtonText}>立即充值</Text>
+              <TouchableHighlight style={styles.cashButton} underlayColor='#f9f9f9' activeOpacity={0.9}
+              onPress={()=>{
+              }}>
+                <Text style={styles.cashButtonText}>暂缓开通</Text>
               </TouchableHighlight>
             </View>
-          </View>
       </ScrollView>
     );
   }
@@ -146,10 +232,13 @@ class RechargeScreen extends React.Component {
 
 const mapStateToProps = state => ({
   isLoggedIn: state.auth.isLoggedIn,
+  userInfo:state.auth.userInfo,
+  loginToken:state.auth.loginToken,
 });
 
 const mapDispatchToProps = dispatch => ({
-  login: (userInfo) => dispatch({ type: 'Login', userInfo: userInfo }),
+  rechargeGold: (gold) => dispatch({ type: 'updateGold', gold: gold }),
+  rechargeMember:(deadline) => dispatch({ type: 'AddDay', deadline: deadline }),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(RechargeScreen);
@@ -171,7 +260,7 @@ const styles = StyleSheet.create({
     paddingTop:20,
   },
   codeArea:{
-    marginBottom:30,
+    marginBottom:20,
   },
   codeText:{
     marginBottom:5,
@@ -236,6 +325,10 @@ const styles = StyleSheet.create({
     borderColor:'#e2e2e2',
     borderRadius:8,
   },
+  chsBgColor:{
+    borderWidth:1,
+    borderColor:'#4dbf4d',
+  },
   cashItemView:{
     width:boxW,  
     height:boxH,
@@ -289,14 +382,14 @@ const styles = StyleSheet.create({
     width:width-240,
     marginLeft:120,
     marginTop:10,
-    backgroundColor:'#4dbf4d',
+    backgroundColor:'#f2f2f2',
     borderRadius:8,
     flexDirection:'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cashButtonText:{
-    color:'#fff',
+    color:'#999',
     fontSize:14,
   },
 });

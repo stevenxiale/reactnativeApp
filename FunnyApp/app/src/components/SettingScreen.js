@@ -14,18 +14,35 @@ import { NavigationActions } from 'react-navigation';
 import { connect } from 'react-redux';
 import Dimensions from 'Dimensions';
 
+const sendToServer = function(component,userInfo,loginToken){
+  var request = new XMLHttpRequest();
+  request.onreadystatechange = (e) => {
+    if (request.readyState !== 4) {
+      return;
+    }
+    if (request.status === 200) {
+        component.props.LoginOut();
+    } else {
+      Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
+    }
+  };
+  
+  request.open('POST', 'http://127.0.0.1:5000/user/logout');
+  request.setRequestHeader('Content-type', 'application/json');
+  request.setRequestHeader('x-login-token',loginToken);
+  request.setRequestHeader('x-user-id',userInfo.id);
+  request.send(JSON.stringify(body));
+}
 
-
-
-const SettingScreen = ({ isLoggedIn, userInfo, toLogin ,navigation}) => (
+const SettingScreen = ({ isLoggedIn, userInfo, Logout ,navigation}) => (
   <ScrollView style={styles.sscreenViewStyle}>
     <View style={styles.settingArea}>
       <TouchableHighlight style={styles.listItem} onPress={()=>{
-        // if(!isLoggedIn){
-        //  toLogin();
-        // }else{
-          navigation.navigate('UpdateInfo');
-        // }
+        if(!isLoggedIn){
+          navigation.navigate('Loginscrn');
+          return;
+        }
+        navigation.navigate('UpdateInfo',{title:'修改密码',setType:'changePwd'});
       }} underlayColor='#f4f4f4' activeOpacity={0.9}>
         <View style={[styles.listItemView,styles.borderBotton]}>
           <Text style={styles.iconText}>修改密码</Text>
@@ -33,7 +50,11 @@ const SettingScreen = ({ isLoggedIn, userInfo, toLogin ,navigation}) => (
         </View>
       </TouchableHighlight>
       <TouchableHighlight style={styles.listItem} onPress={()=>{
-          navigation.navigate('UpdateInfo');
+        if(!isLoggedIn){
+          navigation.navigate('Loginscrn');
+          return;
+        }
+        navigation.navigate('UpdateInfo',{title:'绑定邮箱',setType:'bindEmail'});
       }} underlayColor='#f4f4f4' activeOpacity={0.9}>
         <View style={styles.listItemView}>
           <Text style={styles.iconText}>绑定邮箱</Text>
@@ -43,6 +64,11 @@ const SettingScreen = ({ isLoggedIn, userInfo, toLogin ,navigation}) => (
     </View>
 
     <TouchableHighlight style={styles.lgoutButton} onPress={()=>{
+        if(!isLoggedIn){
+          navigation.goBack();
+          return;
+        }
+        Logout();
         navigation.goBack();
     }} underlayColor='#f4f4f4' activeOpacity={0.9}>
         <Text style={styles.lgoutButtonText}>退出账号</Text>
@@ -53,16 +79,17 @@ const SettingScreen = ({ isLoggedIn, userInfo, toLogin ,navigation}) => (
 SettingScreen.propTypes = {
   isLoggedIn: PropTypes.bool.isRequired,
   userInfo: PropTypes.object.isRequired,
-  toLogin: PropTypes.func.isRequired,
+  Logout: PropTypes.func.isRequired,
 };
 
 const mapStateToProps = state => ({
   isLoggedIn: state.auth.isLoggedIn,
-  userInfo: state.auth.userInfo,
+  userInfo:state.auth.userInfo,
+  loginToken:state.auth.loginToken,
 });
 
 const mapDispatchToProps = dispatch => ({
-  toLogin: () => dispatch(NavigationActions.navigate({ routeName: 'Login'})),
+  Logout: () => dispatch(NavigationActions.navigate({ routeName: 'Logout'})),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(SettingScreen);

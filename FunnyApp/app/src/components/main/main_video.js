@@ -9,23 +9,55 @@ import {
 	Image,
 	Platform,
 	TouchableHighlight,
+	Alert,
+	ActivityIndicator,
 } from 'react-native';
 import { NavigationActions } from 'react-navigation';
 import Dimensions from 'Dimensions';
+import { connect } from 'react-redux';
 
+import Storage from '../../util/Storage';
 
-class ItemContent extends Component{
-	render(){
-		return(
-			<TouchableHighlight  style={styles.listItem} underlayColor='#f4f4f4' activeOpacity={0.9} onPress={() => { this.props.navigation.navigate('Detail');} }>
-				<View style={styles.listItemView}>
-					<Image style={styles.listItemImage} source={require('../images/movie.jpg')} />
-					<Text style={styles.listItemText} numberOfLines={1}>{this.props.item}</Text>
-				</View>
-			</TouchableHighlight>
-		);
-	}
+const getFavList = function(component,userInfo,loginToken){
+  var request = new XMLHttpRequest();
+  request.onreadystatechange = (e) => {
+    if (request.readyState !== 4) {
+      return;
+    }
+    if (request.status === 200) {
+      let data = JSON.parse(request._response);
+      let dataArray = component.state.dataArray.concat(data.items);
+      component.setState({dataArray:dataArray});
+	  component.setState({totalPage:data.pages});
+	  if(component.state.page === 1)
+	  	component.setState({loadSucc:true});
+
+	  if(component.state.page > 1)
+	  	component.setState({connected:true});
+
+	  let page = component.state.page;
+	  page ++;
+	  component.setState({page:page});
+    } else {
+      // Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
+      component.setState({isLoading:false});
+      if(component.state.loadSucc) 
+      	component.setState({connected:false});
+    }
+  };
+  
+  request.open('GET', 'http://127.0.0.1:5000/item/actioners');
+  request.setRequestHeader('Content-type', 'application/json');
+  // request.setRequestHeader('x-login-token',loginToken);
+  // request.setRequestHeader('x-user-id',userInfo.id);
+
+  let body = {
+    page_num:component.state.page,
+    per_page:12,
+  };
+  request.send(JSON.stringify(body));
 }
+
 
 const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 class VideoScreen extends Component{
@@ -33,37 +65,33 @@ class VideoScreen extends Component{
 	    super(props);
 	    this.state = {
 	      dataArray:[],
-	      page:0,
+	      page:1,
 	      totalPage:0,
-	      isLoading:false,
+	      isLoading:true,
+	      animating: true,
+	      loadSucc:false,
+	      connected:true,
+	      visitedList:[],
 	    };
 	    this._renderRow = this._renderRow.bind(this);
 	    this._loadMoreFunc = this._loadMoreFunc.bind(this);
 	    this._footer = this._footer.bind(this);
+	    this._clickItem = this._clickItem.bind(this);
+
+	    getFavList(this,this.props.userInfo,this.props.loginToken);
 	}
 	componentDidMount(){
-		this.setState({dataArray:[
-			'伦敦恐怖袭击已致7人丧生 英国警方逮捕12名涉案人员',
-	        '本山传媒悄然变更经营范围 60岁赵本山转战互联网',
-	        '世乒赛-丁宁4-2朱雨玲夺冠 第三次问鼎比肩邓亚萍',
-	        '[流言板]米体：利物浦和罗马边锋萨拉赫谈妥个人待遇',
-	        '伦敦恐怖袭击已致7人丧生 英国警方逮捕12名涉案人员',
-	        '本山传媒悄然变更经营范围 60岁赵本山转战互联网',
-	        '伦敦恐怖袭击已致7人丧生 英国警方逮捕12名涉案人员',
-	        '本山传媒悄然变更经营范围 60岁赵本山转战互联网',
-	    ]});
-	    let page = this.state.page;
-	    page ++;
-	    this.setState({page:page});
-	    this.setState({totalPage:3});
+		Storage.getItem('visitedList').then((ret)=>{
+			let list = JSON.parse(ret);
+			this.setState({visitedList:list});
+		});
 	}
-
 	_renderRow(rowData){
 		return(
-			<TouchableHighlight style={styles.listItem} onPress={() => { this.props.navigation.navigate('Detail');}}>
+			<TouchableHighlight style={styles.listItem} onPress={this._clickItem} data-id={rowData.id} >
 				<View style={styles.listItemView}>
-					<Image style={styles.listItemImage} source={require('../images/movie.jpg')} />
-					<Text style={styles.listItemText} numberOfLines={2}>{rowData}</Text>
+					<Image style={styles.listItemImage} source={{uri:rowData.cover}} />
+					<Text style={styles.listItemText} numberOfLines={2}>{rowData.title}</Text>
 				</View>
 			</TouchableHighlight>
 		);
@@ -73,41 +101,97 @@ class VideoScreen extends Component{
 		if(this.state.page >= this.state.totalPage) return;
 		
 		this.setState({isLoading:true});
-		let arr = this.state.dataArray;
-		let page = this.state.page;
-		console.log(page);
-		for(let i = 0;i < 6 ;i++){
-			arr.push('加载的第' + (page+1) + '页，数据'+(i+1)+'条。'+(this.props.category==='imageScreen'?'[10P]':''));
-		}
-		page ++;
-		this.setState({page:page});
-		this.setState({dataArray:arr});
-		this.setState({isLoading:false});
+		getFavList(this,this.props.userInfo,this.props.loginToken);
 	}
 	_footer(){
 		if(this.state.page >= this.state.totalPage){
 			return(<Text style={styles.footerStyle}>没有更多了</Text>);
 		}else if(this.state.isLoading){
 			return(<Text style={styles.footerStyle}>数据加载中...</Text>);
+		}else if(!this.state.connected){
+			return(<Text style={styles.footerStyle}>网络有点问题...</Text>);
 		}else{
 			return(<Text style={styles.footerStyle}>上拉加载</Text>);
 		}
 	}
+	_clickItem(e){
+		let param = this.props;
+		if(!param.isLoggedIn){
+			this.props.navigation.navigate('LoginScrn');
+			return;
+		}
+
+		let artId = e.target.getAttribute('data-artId');
+		if(param.userInfo.deadline){
+			this.props.navigation.navigate('Detail',{artId:artId,from:'videoScreen'});
+			return;
+		}
+
+		if(this.state.visitedList.includes(artId)){
+			this.props.navigation.navigate('Detail',{artId:artId,from:'videoScreen'});
+			return;
+		}
+
+		if(param.userInfo.total < 10){
+			Alert.alert('提示','金币不足，请先充值',[{text:'确定',onPress:()=>{}}]);
+			return;
+		}
+	}
 	render() {
-	    return (
-	      <ListView
-	      	style={styles.backgroundW}
-	        dataSource={ds.cloneWithRows(this.state.dataArray)}
-	        renderRow={this._renderRow}
-	        initialListSize={10}
-	        onEndReached={this._loadMoreFunc}
-	        onEndReachedThreshold={1}
-	        contentContainerStyle={styles.containerStyle}
-	      />
-	    );
+		if(this.state.loadSucc ){
+		    return (
+		      <View>
+			      <ListView
+			      	style={styles.bgWhite}
+			        dataSource={ds.cloneWithRows(this.state.dataArray)}
+			        renderRow={this._renderRow}
+			        initialListSize={10}
+			        onEndReached={this._loadMoreFunc}
+			        onEndReachedThreshold={1}
+			        contentContainerStyle={styles.containerStyle}
+			      />
+		      </View>
+		    )
+		}else if(this.state.isLoading){
+			return (
+				<View>
+			      	<ActivityIndicator
+				      animating={this.state.animating}
+				      style={styles.centering}
+				      size= 'small'
+	               	  color= '#fff'
+					/>
+				</View>
+			)
+		}else{
+			return (
+		      <View>
+		      	<View style={styles.noWifiWrapper}>
+			      <Image style={styles.wifiImg} source={require('../images/nowifi.jpg')} />
+			      <Text style={styles.reloadText1}>网络状况不佳</Text>
+			      <Text style={styles.reloadText2}>请检查您的网络设置</Text>
+			      <TouchableHighlight underlayColor='#f4f4f4' activeOpacity={0.9} style={styles.reloadBtn}
+			      	onPress = {() => {
+			      	this.setState({isLoading:true});
+			      	getFavList(this,this.props.userInfo,this.props.loginToken);
+			      }}>
+			      	<Text style={styles.reloadText}>重新加载</Text>
+			      </TouchableHighlight>
+		      	</View>
+		      </View>
+		    )
+		}
 	}
 	
 }
+
+const mapStateToProps = state => ({
+  isLoggedIn: state.auth.isLoggedIn,
+  userInfo:state.auth.userInfo,
+  loginToken:state.auth.loginToken,
+});
+
+export default connect(mapStateToProps)(VideoScreen);
 
 //定义一些全局变量
 const {width} = Dimensions.get('window');
@@ -121,7 +205,46 @@ const boxW = (width - (cols+1) * wMargin) / cols;
 const hMargin = 15;
 
 const styles = StyleSheet.create({
-	backgroundW:{
+	noWifiWrapper:{
+		width:width,
+		height:height,
+		flexDirection:'column',
+		justifyContent:'flex-start',
+		alignItems:'center',
+	},
+	wifiImg:{
+		width:120,
+		height:100,
+		marginTop:200,
+		marginBottom:10,
+	},
+	reloadBtn:{
+		width:160,
+		height:30,
+		marginTop:15,
+		borderWidth:0.5,
+		borderColor:'#999',
+		borderRadius:8,
+		flexDirection:'row',
+		justifyContent:'center',
+		alignItems:'center',
+	},
+	reloadText:{
+		color:'#333',
+		fontSize:16,
+	},
+	reloadText1:{
+		fontSize:16,
+		color:'#666',
+		marginBottom:8,
+	},
+	reloadText2:{
+		fontSize:12,
+		color:'#999',
+	},
+
+
+	bgWhite:{
 		backgroundColor:'#fff',
 	},
 	containerStyle:{
@@ -160,7 +283,14 @@ const styles = StyleSheet.create({
 		color:'#999',
 		textAlign:'center',
 	},
+	centering:{
+		position:'absolute',
+		width:40,
+		height:40,
+		marginTop:200,
+		marginLeft:(width - 40)/2,
+		transform:[{scale:2}],
+		backgroundColor:'gray',
+		borderRadius:5,
+    },
 });
-
-
-export default VideoScreen;

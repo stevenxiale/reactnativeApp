@@ -1,7 +1,11 @@
 import { combineReducers } from 'redux';
 import { NavigationActions } from 'react-navigation';
+import {
+  AsyncStorage,
+} from 'react-native';
 
 import { AppNavigator } from '../components/MainScreen';
+import Storage from '../util/Storage';
 
 const firstAction = AppNavigator.router.getActionForPathAndParams('Main');
 const initialNavState = AppNavigator.router.getStateForAction(firstAction.action);
@@ -9,9 +13,6 @@ const initialNavState = AppNavigator.router.getStateForAction(firstAction.action
 function nav(state = initialNavState, action) {
   let nextState;
   switch (action.type) {
-    case 'Login':
-      nextState = AppNavigator.router.getStateForAction(NavigationActions.back(), state);
-      break;
     case 'Logout':
       nextState = AppNavigator.router.getStateForAction(NavigationActions.navigate({ routeName: 'Login' }), state);
       break;
@@ -24,18 +25,39 @@ function nav(state = initialNavState, action) {
 }
 
 
-
-
-const initialAuthState = { isLoggedIn: false, userInfo: {}};
+const initialAuthState = { isLoggedIn: false, userInfo: {},loginToken: null };
 
 function auth(state = initialAuthState, action) {
   switch (action.type) {
     case 'Login':
-      return { userInfo:action.userInfo, isLoggedIn: true };
+      let loginState = {
+        loginToken:action.userData.loginToken,
+        userId:action.userData.user.id,
+      }
+      Storage.setItem('loginState',JSON.stringify(loginState));
+      Storage.setItem('userInfo',JSON.stringify(action.userData.user));
+      return { userInfo:action.userData.user, loginToken:action.userData.loginToken, isLoggedIn: true };
     case 'Register':
-      return { userInfo:action.userInfo, isLoggedIn: true };
+      let loginState2 = {
+          loginToken:action.userData.loginToken,
+          userId:action.userData.user.id,
+        }
+      Storage.setItem('loginState',JSON.stringify(loginState2));
+      Storage.setItem('userInfo',JSON.stringify(action.userData.user));
+      return { userInfo:action.userData.user, loginToken:action.userData.loginToken, isLoggedIn: true };
+    case 'updateGold':
+      state.userInfo.gold = action.gold;
+      return state;
+    case 'AddDay':
+      state.userInfo.deadline = action.deadline;
+      return state;
+    case 'UpdateVersion':
+      state.userInfo.version = action.version;
+      return state;
     case 'Logout':
-      return { userInfo:action.userInfo, isLoggedIn: false };
+      Storage.delete('loginState');
+      Storage.delete('userInfo');
+      return { userInfo:{}, loginToken:null, isLoggedIn: false };
     default:
       return state;
   }
@@ -43,7 +65,7 @@ function auth(state = initialAuthState, action) {
 
 const AppReducer = combineReducers({
 	nav,
-  	auth,
+  auth,
 });
 
 export default AppReducer;

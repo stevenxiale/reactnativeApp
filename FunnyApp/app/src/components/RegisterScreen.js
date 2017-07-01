@@ -6,19 +6,21 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
+  Alert,
 }from 'react-native';
+import { NavigationActions } from 'react-navigation';
+import { connect } from 'react-redux';
+import md5 from 'react-native-md5';
+import Dimensions from 'Dimensions';
+
 import UserInput from './login/UserInput';
 import usernameImg from './images/username.png';
 import pwdImg from './images/password.png';
-import { NavigationActions } from 'react-navigation';
-import { connect } from 'react-redux';
-import Dimensions from 'Dimensions';
-
 
 const resetAction = NavigationActions.reset({
   index: 0,
   actions: [
-    NavigationActions.navigate({routeName: 'Main'})
+    NavigationActions.navigate({routeName: 'Main',params: {selectedTab: 'Mine'}})
   ]
 });
 const sendToServer = function(component){
@@ -28,11 +30,11 @@ const sendToServer = function(component){
       return;
     }
     if (request.status === 200) {
-      let userInfo = JSON.parse(request._response);
-      component.props.Register(userInfo);
+      let userData = JSON.parse(request._response);
+      component.props.Register(userData);
       component.props.navigation.dispatch(resetAction);
     } else {
-      alert(request._response);
+       Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
     }
   };
 
@@ -41,16 +43,19 @@ const sendToServer = function(component){
   request.setRequestHeader('Accept', 'application/json');
   let body = {
     "username":component.state.username,
-    "password":component.state.password,
+    "password":md5.str_md5(component.state.password),
     "email":component.state.email,
+    "inviter":component.state.inviter,
   };
+
+  console.log(md5.str_md5(component.state.password));
   request.send(JSON.stringify(body));
 }
 
 class RegisterScreen extends React.Component {
   constructor(props) {
       super(props);
-      this.state = {username: '',password:'',confirmPwd:'',email:''};
+      this.state = {username: '',password:'',confirmPwd:'',email:'',};
       this.setUserInput = this.setUserInput.bind(this);
       this.registerSubmmit = this.registerSubmmit.bind(this);
   }
@@ -72,16 +77,17 @@ class RegisterScreen extends React.Component {
       <ScrollView style = {styles.register}>
        <View style={styles.inputArea}>
         <UserInput source={usernameImg}
-          placeholder='用户名'
+          placeholder='用户名(不超过12位数字/字母或组合)'
           returnKeyType={'done'}
           keyboardType={'default'}
           autoCorrect={true}
+          autoFocus={true}
           secureTextEntry={false}
           valueType={'username'}
           setUserInput={this.setUserInput}
           />
         <UserInput source={pwdImg}
-          placeholder='密码'
+          placeholder='密码(大于6位数字/字母或组合)'
           returnKeyType={'done'}
           keyboardType={'default'}
           autoCorrect={true}
@@ -107,6 +113,15 @@ class RegisterScreen extends React.Component {
           valueType={'email'}
           setUserInput={this.setUserInput}
           />
+          <UserInput source={pwdImg}
+          placeholder='邀请码'
+          returnKeyType={'done'}
+          keyboardType={'default'}
+          autoCorrect={true}
+          secureTextEntry={false}
+          valueType={'inviter'}
+          setUserInput={this.setUserInput}
+          />
         </View>
         <TouchableHighlight onPress = { this.registerSubmmit } 
           style = {styles.registerButton}>
@@ -130,24 +145,32 @@ class RegisterScreen extends React.Component {
        this.setState({email:value});
     }else if(type == 'confirmPwd'){
        this.setState({confirmPwd:value});
+    }else if(type == 'inviter'){
+      this.setState({inviter:value});
     }
 
   }
   registerSubmmit(){
+    let unReg = /^([0-9]|[a-z]|[A-Z]){1,}$/ ;
+
     if( !this.state.username ){
-      alert('用户名 不能为空');
+      Alert.alert('提示','用户名不能为空',[{text:'确定',onPress:()=>{}}]);
+      return;
+    }
+    if(this.state.username.length > 12){
+      Alert.alert('提示','用户名长度不能超过12',[{text:'确定',onPress:()=>{}}]);
       return;
     }
     if( !this.state.password ){
-      alert('密码不能为空');
+      Alert.alert('提示','密码不能为空',[{text:'确定',onPress:()=>{}}]);
       return;
     }
-    if( !this.state.email ){
-      alert('邮箱不能为空');
+    if(!unReg.test(this.state.password)){
+      Alert.alert('提示','密码只限输入数字或字母',[{text:'确定',onPress:()=>{}}]);
       return;
     }
     if( this.state.password != this.state.confirmPwd ){
-      alert('两次输入密码不一致');
+      Alert.alert('两次输入密码不一致');
       return;
     }
     sendToServer(this);
@@ -159,7 +182,7 @@ const mapStateToProps = state => ({
 });
 
 const mapDispatchToProps = dispatch => ({
-  Register: (userInfo) => dispatch({ type: 'Register', userInfo: userInfo }),
+  Register: (userData) => dispatch({ type: 'Register', userData: userData }),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(RegisterScreen);

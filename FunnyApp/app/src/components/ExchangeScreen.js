@@ -9,43 +9,56 @@ import {
   Button,
   TouchableOpacity,
   Image,
+  Alert,
 }from 'react-native';
 import { NavigationActions } from 'react-navigation';
 import { connect } from 'react-redux';
 import Dimensions from 'Dimensions';
+import md5 from 'react-native-md5';
 
 import usernameImg from './images/username.png';
 import pwdImg from './images/password.png';
 import UserInput from './login/UserInput';
 
 
-const sendToServer = function(component){
+const sendToServer = function(component,userInfo,loginToken){
   var request = new XMLHttpRequest();
   request.onreadystatechange = (e) => {
     if (request.readyState !== 4) {
       return;
     }
     if (request.status === 200) {
-      let userInfo = JSON.parse(request._response);
-      component.props.login(userInfo);
-      component.props.navigation.goBack();
+      let data = JSON.parse(request._response);
+      component.props.exGold(data);
     } else {
-      alert(request._response);
+      Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
     }
   };
   
-  request.open('POST', 'http://127.0.0.1:5000/login');
+  request.open('POST', 'http://127.0.0.1:5000/user/transfer');
   request.setRequestHeader('Content-type', 'application/json');
-  let body = {username:component.state.username,password:component.state.password};
+  request.setRequestHeader('x-login-token',loginToken);
+  request.setRequestHeader('x-user-id',userInfo.id);
+
+  let body = {
+    payee:component.state.friendId,
+    amount:component.state.amount.trim(),
+    timestamp:new Date().getTime(),
+    signature:'?user_id=' + userInfo.id + '&payee_id=' + md5.str_md5(component.state.friendId,new Date().getTime())+'&amount='+amount+'&timestamp='+timestamp,
+  };
   request.send(JSON.stringify(body));
 }
 
 class ExchangeScreen extends React.Component {
 	constructor(props) {
 	    super(props);
+      this.state = {
+        friendId:'',
+        amount:'',
+      };
 	}
   static navigationOptions = {
-    title: '充值',
+    title: '转金币',
    	headerStyle:{
       backgroundColor:'#fff',
       justifyContent:'center',
@@ -62,7 +75,7 @@ class ExchangeScreen extends React.Component {
     return (
       <ScrollView style = {styles.recharge}>
           <View style={styles.codeArea}>
-            <Text style={styles.codeText}>转账给好友</Text>
+            <Text style={styles.codeText}>转金币给好友</Text>
             <View style={styles.codeInput}>
               <TextInput style={styles.input}
                 placeholder='请输入好友的ID'
@@ -73,17 +86,53 @@ class ExchangeScreen extends React.Component {
                 placeholderTextColor='#999'
                 underlineColorAndroid='transparent'
                 onChangeText={(value) => {
-                  console.log(value);
+                  this.setState({friendId:value});
                   }
                 }
                 ref = {(TextInput) => {this.textInput = TextInput; }}
               />
-              <TouchableHighlight 
-                style = {styles.rechargeButton}>
-                <Text style={styles.rechargeButtonText}>立即转账</Text>
-              </TouchableHighlight>
+              <TextInput style={styles.input}
+                placeholder='请输入转账数量'
+                returnKeyType= 'done'
+                keyboardType= 'default'
+                autoCapitalize= 'none'
+                autoCorrect= {true}
+                placeholderTextColor='#999'
+                underlineColorAndroid='transparent'
+                onChangeText={(value) => {
+                  this.setState({amount:value});
+                  }
+                }
+                ref = {(TextInput) => {this.textInput = TextInput; }}
+              />
+               <View style={styles.cashButtonArea}>
+                <TouchableHighlight style={styles.cashButton} underlayColor='#f9f9f9' activeOpacity={0.9}
+                onPress={()=>{
+                  if(!this.state.friendId && !this.state.friendId.trim()){
+                    Alert.alert('提示','好友ID不能为空',[{text:'确定',onPress:()=>{}}]);
+                    return;
+                  }
+                  if(!this.state.amount && !this.state.amount.trim()){
+                    Alert.alert('提示','金币数量不能为空',[{text:'确定',onPress:()=>{}}]);
+                    return;
+                  }
+                  let reg = new RegExp("^[0-9]*$");
+                  if(!reg.test(this.state.amount.trim())){
+                    Alert.alert('提示','金币数量只能为数字',[{text:'确定',onPress:()=>{}}]);
+                    return;
+                  }
+                  if(Number.parseInt(this.state.amount.trim()) + 3 > this.props.userInfo.gold){
+                    var num = this.props.userInfo.gold - 3;
+                    Alert.alert('提示','转账数量不能超过'+{num}+'个',[{text:'确定',onPress:()=>{}}]);
+                    return;
+                  }
+                  sendToServer(this,this.props.userInfo,this.props.loginToken);
+                }}>
+                  <Text style={styles.cashButtonText}>立即转账</Text>
+                </TouchableHighlight>
+              </View>
             </View>
-            <Text style={styles.notice}>温馨提示：每次转金币给好友将耗费您3个金币。</Text>
+            <Text style={styles.notice}>温馨提示：每次转金币给好友将耗费您3个金币。您当前金币剩余{this.props.isLoggedIn ? this.props.userInfo.gold : '--'}个</Text>
           </View>
 
       </ScrollView>
@@ -97,7 +146,7 @@ const mapStateToProps = state => ({
 });
 
 const mapDispatchToProps = dispatch => ({
-  login: (userInfo) => dispatch({ type: 'Login', userInfo: userInfo }),
+  exGold: (gold) => dispatch({ type: 'updateGold', gold: gold }),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(ExchangeScreen);
@@ -124,10 +173,7 @@ const styles = StyleSheet.create({
     paddingTop:10,
     paddingBottom:10,
     paddingLeft:20,
-    paddingRight:10,
-    flexDirection:'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingRight:20,
     backgroundColor:'#fff',
     borderBottomWidth:0.5,
     borderBottomColor:'#ececec',
@@ -135,8 +181,9 @@ const styles = StyleSheet.create({
     borderTopColor:'#ececec',
   },
   input:{
-    width:width - 120,
+    width:width - 40,
     height: 40,
+    marginBottom:10,
     paddingLeft:5,
     fontSize:14,
     color: '#333',
@@ -145,18 +192,21 @@ const styles = StyleSheet.create({
     borderColor:'#e2e2e2',
     borderRadius:8,
   },
-  rechargeButton:{
+  cashButtonArea:{
+    height:60,
+    backgroundColor:'#fff',
+  },
+  cashButton:{
     height:40,
-    width:80,
+    width:width-40,
+    marginTop:10,
+    backgroundColor:'#4dbf4d',
+    borderRadius:8,
     flexDirection:'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor:'#4dbf4d',
-    borderWidth:0.5,
-    borderColor:'#4dbf4d',
-    borderRadius:8,
   },
-  rechargeButtonText:{
+  cashButtonText:{
     color:'#fff',
     fontSize:14,
   },

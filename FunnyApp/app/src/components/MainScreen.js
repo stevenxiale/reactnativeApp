@@ -28,7 +28,7 @@ const MyVideoScreen = ({navigation}) => (
   <VideoScreen navigation = {navigation}/>
 );
 MyVideoScreen.navigationOptions = {
-  tabBarLabel: '视频',
+  tabBarLabel: '新闻',
   tabBarIcon: ({ tintColor }) => (
     <Image
       source={require('./images/video.png')}
@@ -44,7 +44,7 @@ const MyImageScreen = ({ navigation }) => (
   <TextScreen navigation={navigation} category={'imageScreen'}/>
 );
 MyImageScreen.navigationOptions = {
-    tabBarLabel: '图片',
+    tabBarLabel: '新闻',
     tabBarIcon: ({ tintColor }) => (
       <Image
         source={require('./images/image.png')}
@@ -57,7 +57,7 @@ const MyTextScreen = ({ navigation }) => (
  <TextScreen navigation={navigation} category={'textScreen'}/>
 );
 MyTextScreen.navigationOptions = {
-    tabBarLabel: '小说',
+    tabBarLabel: '新闻',
     tabBarIcon: ({ tintColor }) => (
       <Image
         source={require('./images/text.png')}
@@ -145,7 +145,7 @@ MainScreen.navigationOptions = {
 }
 
 export const AppNavigator = StackNavigator({
-  Login: { screen: LoginScreen },
+  Loginscrn: { screen: LoginScreen },
   Main: { screen: MainScreen },
   Detail: { screen: DetailScreen },
   Register: { screen: RegisterScreen},

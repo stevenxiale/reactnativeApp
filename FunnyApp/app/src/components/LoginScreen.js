@@ -8,13 +8,15 @@ import {
   StyleSheet,
   Button,
   TouchableOpacity,
+  Alert,
 }from 'react-native';
 import { NavigationActions } from 'react-navigation';
 import { connect } from 'react-redux';
 import Dimensions from 'Dimensions';
+import md5 from 'react-native-md5';
 
-import usernameImg from './images/username.png';
-import pwdImg from './images/password.png';
+import usernameImg from './images/center.png';
+import pwdImg from './images/eye_black.png';
 import UserInput from './login/UserInput';
 
 
@@ -31,17 +33,20 @@ const sendToServer = function(component){
       return;
     }
     if (request.status === 200) {
-      let userInfo = JSON.parse(request._response);
-      component.props.login(userInfo);
+      let userData = JSON.parse(request._response);
+      component.props.login(userData);
       component.props.navigation.goBack();
     } else {
-      alert(request._response);
+      Alert.alert('提示',request._response,[{text:'确定',onPress:()=>{}}]);
     }
   };
   
   request.open('POST', 'http://127.0.0.1:5000/login');
   request.setRequestHeader('Content-type', 'application/json');
-  let body = {username:component.state.username,password:component.state.password};
+  let body = {
+    username:component.state.username,
+    password:md5.str_md5(component.state.password),
+  };
   request.send(JSON.stringify(body));
 }
 
@@ -75,6 +80,7 @@ class LoginScreen extends React.Component {
           placeholder='用户名'
           returnKeyType={'done'}
           autoCorrect={true}
+          autoFocus={true}
           secureTextEntry={false}
           keyboardType={'default'}
           autoCapitalize={'none'}
@@ -84,6 +90,7 @@ class LoginScreen extends React.Component {
           placeholder='密码'
           returnKeyType={'done'}
           autoCorrect={true}
+          autoFocus={false}
           secureTextEntry={true}
           keyboardType={'default'}
           autoCapitalize={'none'}
@@ -98,7 +105,7 @@ class LoginScreen extends React.Component {
         	<TouchableOpacity style={styles.registerButton} underlayColor='#f4f4f4' activeOpacity={0.9} onPress = {() => {this.props.navigation.navigate('Register');}} >
         		<Text style={styles.registerButtonText}>注册</Text>
         	</TouchableOpacity>
-        	<TouchableOpacity style={styles.registerButton} underlayColor='#f4f4f4' activeOpacity={0.9} onPress={() => {}}>
+        	<TouchableOpacity style={styles.registerButton} underlayColor='#f4f4f4' activeOpacity={0.9} onPress={() => {this.props.navigation.navigate('UpdateInfo',{title:'找回密码',setType:'findPwd'});}}>
 	        	<Text style={styles.registerButtonText}>忘记密码</Text>
 	        </TouchableOpacity>
 	     </View>
@@ -114,8 +121,12 @@ class LoginScreen extends React.Component {
   	}
   }
   loginSubmmit(){
-  	if(!this.state.username || !this.state.password){
-  		alert('用户名或者密码不能为空');
+    if(!this.state.username){
+      Alert.alert('提示','用户名不能为空',[{text:'确定',onPress:()=>{}}]);
+      return;
+    }
+  	if(!this.state.password){
+  		Alert.alert('提示','密码不能为空',[{text:'确定',onPress:()=>{}}]);
   		return;
   	}
   	sendToServer(this);
@@ -127,7 +138,7 @@ const mapStateToProps = state => ({
 });
 
 const mapDispatchToProps = dispatch => ({
-  login: (userInfo) => dispatch({ type: 'Login', userInfo: userInfo }),
+  login: (userData) => dispatch({ type: 'Login', userData: userData }),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(LoginScreen);
@@ -163,7 +174,6 @@ const styles = StyleSheet.create({
   	width:DEVICE_WIDTH - 20,
     marginHorizontal: 10,
     marginTop:5,
-  	flex:1,
   	flexDirection:'row',
     justifyContent: 'space-between',
     alignItems: 'center',
