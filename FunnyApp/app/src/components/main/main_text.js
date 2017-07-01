@@ -91,7 +91,7 @@ class TextScreen extends Component{
 	_renderRow(rowData){
 		return(
 			<TouchableHighlight  style={styles.listItem} underlayColor='#f4f4f4' activeOpacity={0.9} onPress={this._clickItem} data-id={rowData.id} >
-				<Text style={styles.titleStyle} numberOfLines={2}>{this.state.from == 'imageScreen' ? rowData.title+'['+rowData.imgCount+'P]'}</Text>
+				<Text style={styles.titleStyle} numberOfLines={2}>{this.state.from == 'imageScreen' ? (rowData.title+'['+rowData.imgCount+'P]') : rowData.title}</Text>
 			</TouchableHighlight>
 		);
 	}
